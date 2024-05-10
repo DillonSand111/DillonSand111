@@ -1,6 +1,5 @@
 - 👋 Hi, I’m @DillonSand111
-- 👀 I’m interested in Boxing and Financial Studies (2 very different things I know :)
-- 🌱 I’m currently learning Banking & International Finance
+- 🌱 I’m currently studying Banking & International Finance
 - 💞️ I’m looking to collaborate on Finance and data analytics projects (python related and some knowledge of R)
 
 <!---
