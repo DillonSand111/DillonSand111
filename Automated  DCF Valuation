@@ -1,0 +1,173 @@
+#this is a python tool script which requires you to install the pandas package first
+#it enables you to quickly conduct a DCF Valuation by inputting:
+#financial data from 3 historical recent years
+#Estimates for revenue for next 3 years ( I use analyst consensuses)
+#assumptions for CAPM
+#Cost of debt
+#terminal growth rate
+#total debt and market cap
+#IMPORTANT - Uses % of Sales forecasting for all items apart from taxes (% of EBIT)
+#IMPORTANT - Uses WACC as discount rate (does not value using APV method)
+
+
+#PLEASE NOTE I AM CURRENTLY DEVELOPING A GUI INTERFACE FOR THIS TOOL TO MAKE IT MORE USEABLE ON A LARGER SCALE
+
+# CODE WRITTEN BY DILLON SANDHU
+
+import pandas as pd
+
+# Step 1: Prompt the user to input financial data for each year
+num_years = int(input("Enter the number of years of historical data: "))
+data = {}
+
+for i in range(num_years):
+    year = input(f"Enter the year {i + 1}: ")
+    revenue = float(input(f"Enter the revenue for year {year}: "))
+    ebit = float(input(f"Enter the EBIT for year {year}: "))
+    depreciation_amortization = float(input(f"Enter the Depreciation & Amortization for year {year}: "))
+    capex = float(input(f"Enter the CapEx for year {year}: "))
+    nwc_change = float(input(f"Enter the Change in Net Operating WC for year {year}: "))
+    taxes = float(input(f"Enter the Taxes for year {year}: "))
+
+    data[year] = {
+        'Revenue': revenue,
+        'EBIT': ebit,
+        'Depreciation & Amortization': depreciation_amortization,
+        'CapEx': capex,
+        'Change in Net Operating WC': nwc_change,
+        'Taxes': taxes
+    }
+
+# Step 2: Create a DataFrame from the user input data
+financials = pd.DataFrame(data).T
+
+# Step 3: Calculate EBIT as a percentage of revenue for the last 3 years and calculate mean
+last_3_years_ebit_percentage = (financials['EBIT'] / financials['Revenue']).tail(3)
+mean_ebit_percentage = last_3_years_ebit_percentage.mean()
+
+# Step 4: Calculate Taxes as a percentage of EBIT for the last 3 years and calculate mean
+last_3_years_tax_percentage = (financials['Taxes'] / financials['EBIT']).tail(3)
+mean_tax_percentage = last_3_years_tax_percentage.mean()
+
+# Step 5: Calculate Depreciation & Amortization as a percentage of revenue for the last 3 years and calculate mean
+last_3_years_depreciation_percentage = (financials['Depreciation & Amortization'] / financials['Revenue']).tail(3)
+mean_depreciation_percentage = last_3_years_depreciation_percentage.mean()
+
+# Step 6: Calculate CapEx as a percentage of revenue for the last 3 years and calculate mean
+last_3_years_capex_percentage = (financials['CapEx'] / financials['Revenue']).tail(3)
+mean_capex_percentage = last_3_years_capex_percentage.mean()
+
+# Step 7: Calculate Change in Net Operating WC as a percentage of revenue for the last 3 years and calculate mean
+last_3_years_nwc_percentage = (financials['Change in Net Operating WC'] / financials['Revenue']).tail(3)
+mean_nwc_percentage = last_3_years_nwc_percentage.mean()
+
+# Step 8: Calculate EBIAT for the last 3 years
+financials['EBIAT'] = financials['EBIT'] - financials['Taxes']
+
+# Step 9: Calculate unlevered Free Cash Flow (FCF) for the last 3 years
+financials['FCF'] = financials['EBIAT'] + financials['Depreciation & Amortization'] - financials['CapEx'] - financials[
+    'Change in Net Operating WC']
+
+# Step 10: Prompt the user to input revenue estimates for the next 3 years
+next_3_years = [f"Year {int(financials.index[-1]) + i + 1}" for i in range(3)]
+revenue_estimates = []
+
+for year in next_3_years:
+    revenue_estimate = float(input(f"Enter the revenue estimate for {year}: "))
+    revenue_estimates.append(revenue_estimate)
+
+# Step 11: Project EBIT for the next 3 years using the mean EBIT percentage
+projected_ebit_index = pd.Index(next_3_years)
+projected_ebit = mean_ebit_percentage * pd.Series(revenue_estimates, index=projected_ebit_index)
+
+# Step 12: Project Taxes for the next 3 years using the mean tax percentage
+projected_taxes = mean_tax_percentage * projected_ebit
+
+# Step 13: Project Depreciation & Amortization for the next 3 years using the mean percentage
+projected_depreciation = mean_depreciation_percentage * pd.Series(revenue_estimates, index=projected_ebit_index)
+
+# Step 14: Project CapEx for the next 3 years using the mean percentage
+projected_capex = mean_capex_percentage * pd.Series(revenue_estimates, index=projected_ebit_index)
+
+# Step 15: Project Change in Net Operating WC for the next 3 years using the mean percentage
+projected_nwc = mean_nwc_percentage * pd.Series(revenue_estimates, index=projected_ebit_index)
+
+# Step 16: Combine projected revenue, EBIT, Taxes, Depreciation & Amortization, CapEx, and NWC for the next 3 years
+projected_financials = pd.DataFrame({
+    'Revenue': revenue_estimates,
+    'EBIT': projected_ebit,
+    'Taxes': projected_taxes,
+    'Depreciation & Amortization': projected_depreciation,
+    'CapEx': projected_capex,
+    'Change in Net Operating WC': projected_nwc
+}, index=projected_ebit_index)
+
+# Step 17: Calculate EBIAT for the projected financials
+projected_financials['EBIAT'] = projected_financials['EBIT'] - projected_financials['Taxes']
+
+# Step 18: Calculate unlevered Free Cash Flow (FCF) for the projected financials
+projected_financials['FCF'] = projected_financials['EBIAT'] + projected_financials['Depreciation & Amortization'] - \
+                              projected_financials['CapEx'] - projected_financials['Change in Net Operating WC']
+
+# Step 19: Prompt the user to input market cap, net debt, cost of debt, tax rate, beta, risk-free rate, and market premium
+market_cap = float(input("Enter the market capitalization: "))
+net_debt = float(input("Enter the net debt: "))
+cost_of_debt = float(input("Enter the cost of debt: "))
+tax_rate = float(input("Enter the tax rate: "))
+beta = float(input("Enter the beta: "))
+risk_free_rate = float(input("Enter the risk-free rate: "))
+market_premium = float(input("Enter the market premium: "))
+
+# Step 20: Calculate cost of equity using CAPM
+cost_of_equity = risk_free_rate + beta * market_premium
+
+# Step 21: Calculate WACC
+equity_weight = market_cap / (market_cap + net_debt)
+debt_weight = net_debt / (market_cap + net_debt)
+
+wacc = (equity_weight * cost_of_equity) + (debt_weight * cost_of_debt * (1 - tax_rate))
+
+# Step 22: Print WACC
+print("\nWeighted Average Cost of Capital (WACC):", wacc)
+
+# Step 23: Prompt the user to input terminal growth rate
+terminal_growth_rate = float(input("Enter the terminal growth rate: "))
+
+# Step 24: Calculate terminal value
+last_year_unlevered_fcf = projected_financials['FCF'].iloc[-1]
+terminal_value = (last_year_unlevered_fcf * (1 + terminal_growth_rate)) / (wacc - terminal_growth_rate)
+
+# Step 25: Discount terminal value to get present value
+present_value_terminal_value = terminal_value / (1 + wacc) ** 3  # Assuming terminal value occurs in Year 3
+
+# Step 26: Discount projected unlevered FCF to get present value
+present_value_fcf = projected_financials['FCF'] / (1 + wacc) ** pd.Series(range(1, 4))
+
+# Step 27: Calculate enterprise value
+enterprise_value = present_value_terminal_value + present_value_fcf.sum()
+
+# Step 28: Prompt the user to input current levels of cash and total debt
+current_cash = float(input("Enter the current levels of cash: "))
+total_debt = float(input("Enter the total debt: "))
+
+# Step 29: Calculate equity value
+equity_value = enterprise_value + current_cash - total_debt
+
+# Step 30: Prompt the user to input shares outstanding
+shares_outstanding = float(input("Enter the shares outstanding: "))
+
+# Step 31: Calculate implied stock price
+implied_stock_price = equity_value / shares_outstanding
+
+# Step 32: Print implied stock price
+print("\nImplied Stock Price:", implied_stock_price)
+
+# Step 33: Print key information from the DCF analysis
+print("\nKey Information from Discounted Cash Flow (DCF) Analysis:")
+print(f"Weighted Average Cost of Capital (WACC): {wacc:.2%}")
+print(f"Terminal Growth Rate: {terminal_growth_rate:.2%}")
+print(f"Terminal Value: ${terminal_value:.2f}")
+print(f"Present Value of Terminal Value: ${present_value_terminal_value:.2f}")
+print(f"Enterprise Value: ${enterprise_value:.2f}")
+print(f"Equity Value: ${equity_value:.2f}")
+print(f"Implied Stock Price: ${implied_stock_price:.2f}")
